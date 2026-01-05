@@ -14,7 +14,7 @@ Automates weekly QC for newly BIDSified CARE scans:
 
 This is intended to be run **weekly** and produce a lightweight “mini-report” email.
 
-> Notes from the script: you must have **Docker running** to run MRIQC, and email sending via `sendmail` works reliably only when connected to a UA machine (often best on Jessktop; may fail on VPN). 
+> Notes from the script: you must have **Docker running** to run MRIQC, and email sending via `sendmail` works reliably only when connected to a UA machine (may fail on VPN). 
 
 ---
 
@@ -65,10 +65,6 @@ You will typically configure:
 * BIDS dataset path (e.g., `/Volumes/achieve/CARE_Scans/bids` or `bids_testing`)
 * Base pipeline folder (where derivatives/logs/reports live)
 * Email recipients
-
-In the original script, these are hard-coded as paths (examples shown here). 
-If you modularized as suggested, you’ll usually pass these via CLI flags instead (recommended).
-
 ---
 
 ## Running the full weekly pipeline
@@ -135,9 +131,6 @@ Run it directly (example):
 ```bash
 python bids_qc_report.py
 ```
-
-(Exact arguments depend on your local implementation of `bids_qc_report.py`.)
-
 ---
 
 ### C) Run MRIQC for one subject (`run_mriqc_local.sh`)
@@ -155,11 +148,6 @@ Example:
 ```bash
 bash run_mriqc_local.sh 1111
 ```
-
-Logs:
-
-* Your pipeline writes per-subject stdout/stderr logs (e.g., `mriqc_local_logs/mriqc_1111.out.txt`, `.err.txt`). 
-
 ---
 
 ### D) Aggregate group TSVs (`runmriqc_group_local.py`)
@@ -174,7 +162,7 @@ python runmriqc_group_local.py \
   --out-dir /path/to/weekly_group_reports
 ```
 
-If `--subjects` is omitted, it discovers all subjects in derivatives. (See `discover_labels_from_derivatives()` path in your main.)
+If `--subjects` is omitted, it discovers all subjects in derivatives. 
 
 #### Aggregate only specific subjects (incremental weekly subset)
 
@@ -206,9 +194,6 @@ The weekly report plots are generated from:
 
 * “this week” TSVs (dated): `baseline_T1w_YYYY-MM-DD.tsv`, `scan2_bold_YYYY-MM-DD.tsv`, etc.
 * full-sample TSVs (undated): `baseline_T1w.tsv`, `scan2_bold.tsv`, etc. 
-
-If you modularized plotting into `mriqc_pipeline/plotting.py` + `group_report.py`, you can regenerate plots without re-running MRIQC.
-
 ---
 
 ### F) Send the email only
@@ -251,7 +236,7 @@ In `weekly_group_reports/`:
 ### Email not sending
 
 * `sendmail` must exist (`shutil.which("sendmail")` must succeed). 
-* Script notes that it may fail on VPN; works best connected to UA machine/Jessktop. 
+* May fail on VPN; works best connected to UA machine
 
 ### MRIQC fails
 
@@ -265,8 +250,7 @@ In `weekly_group_reports/`:
 ### Rest / TA splits look wrong
 
 * The pipeline filters BOLD by substring matches on `file_name` (e.g., contains `"rest"` or `"ta"`). 
-  If your naming changes, update the filter patterns.
-
+ 
 ---
 
 
