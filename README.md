@@ -14,7 +14,7 @@ Automates weekly QC for newly BIDSified CARE scans:
 
 This is intended to be run **weekly** and produce a lightweight “mini-report” email.
 
-> Notes from the script: you must have **Docker running** to run MRIQC, and email sending via `sendmail` works reliably only when connected to a UA machine (may fail on VPN). 
+> You must have **Docker running** to run MRIQC, and email sending via `sendmail` works reliably only when connected to a UA machine (may fail on VPN). 
 
 ---
 
