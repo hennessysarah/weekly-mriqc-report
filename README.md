@@ -1,7 +1,7 @@
 # MRIQC Weekly Pipeline
 
-# Sarah Hennessy, shennessy@arizona.edu
-# last edit: Jan 5, 2026
+Sarah Hennessy, shennessy@arizona.edu
+last edit: Jan 5, 2026
 
 Automates weekly QC for newly BIDSified CARE scans:
 
