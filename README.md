@@ -62,7 +62,7 @@ pip install pandas matplotlib
 
 You will typically configure:
 
-* BIDS dataset path (e.g., `/Volumes/achieve/CARE_Scans/bids` or `bids_testing`)
+* BIDS dataset path 
 * Base pipeline folder (where derivatives/logs/reports live)
 * Email recipients
 ---
@@ -71,7 +71,7 @@ You will typically configure:
 
 I recommend you run this once a week at a scheduled time (ie Fridays at 9am).
 
-### 0) Run master_bids.py: /Volumes/achieve/CARE_Scans/master_bids.py 
+### 0) Run master_bids.py
 
 If you don't run this, nothing new will happen. The idea here is to do Bidsifying and QCing regularly. 
 	See that script for instructions.
@@ -86,8 +86,8 @@ Example:
 
 ```bash
 python weekly_mriqc.py \
-  --bids-folder /Volumes/achieve/CARE_Scans/bids\
-  --base-folder /Volumes/achieve/CARE_Study/9_fMRI_Analysis/Preprocessing/MRIQC/ \
+  --bids-folder [path]
+  --base-folder [path]\
   --recipients shennessy@arizona.edu
 ```
 
