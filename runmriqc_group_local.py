@@ -12,7 +12,7 @@ Aggregate already-run MRIQC IQM JSONs into group TSVs
 Usage examples
 --------------
 
-Aggregate already-run MRIQC IQM JSONs into FOUR group TSVs:
+Weekly option: Aggregate already-run MRIQC IQM JSONs into FOUR group TSVs:
 
 1) baseline_T1w_{todays date}.tsv   (sub-####)
 2) baseline_bold_{todays date}.tsv  (sub-####)
@@ -22,6 +22,7 @@ Aggregate already-run MRIQC IQM JSONs into FOUR group TSVs:
 
 # Aggregate ALL subjects found in derivatives:
 --mriqc-deriv /PATH To/mriqc_dev
+output: baseline_T1w.tsv etc.
 
 # Aggregate only specific subjects (labels WITHOUT "sub-"):
 # (for example, as used in master_mriqc.py)
@@ -157,15 +158,23 @@ def find_iqm_jsons(
     else:
         candidates = list(mriqc_deriv_dir.glob("sub-*/func/sub-*_bold.json"))
 
+    # None means "no filter" => return all candidates
     if participant_labels is None:
         return sorted(candidates)
 
+    # Empty list means "filter provided but nothing requested" => return nothing
+    participant_labels = list(participant_labels)
+    if len(participant_labels) == 0:
+        return []
+
     want = {str(x).replace("sub-", "") for x in participant_labels}
+
     kept: list[Path] = []
     for p in candidates:
         m = re.search(r"sub-(\d+)", p.name)
         if m and m.group(1) in want:
             kept.append(p)
+
     return sorted(kept)
 
 
@@ -250,34 +259,44 @@ def write_one(
     modality: Modality,
     add_outliers: bool,
     z_thresh: float,
-    incremental: bool = False,  # <- NEW
+    incremental: bool = False,
 ) -> None:
+
+    # If labels were explicitly provided but there are none for this group, skip.
+    # (This prevents baseline->scan2 contamination.)
+    if incremental and labels is None:
+        print(f"[INFO] Incremental run: no labels provided for {label_set_name} {modality}; skipping.")
+        return
+    if labels is not None and len(labels) == 0:
+        print(f"[INFO] No labels for {label_set_name} {modality}; skipping.")
+        return
+
+
+
     df = aggregate_iqms(mriqc_deriv, modality, participant_labels=labels)
 
     if df.empty:
         print(f"[WARN] No rows for {label_set_name} {modality} (labels={labels}).")
         return
 
-    # Optional outlier flags
     if add_outliers:
         df = add_outlier_flags(df, z_thresh=z_thresh)
 
-    # Keep only numeric metrics + identifiers (your current behavior)
     metric_cols = df.select_dtypes(include="number").columns.tolist()
     keep_cols = ["participant_id", "file_name"] + metric_cols
     df = df[keep_cols]
 
-    # 1) Always write dated snapshot
     today = datetime.now().strftime("%Y-%m-%d")
     dated_path = out_dir / f"{label_set_name}_{modality}_{today}.tsv"
     df.to_csv(dated_path, sep="\t", index=False)
     print(f"Wrote snapshot {dated_path} (rows={len(df):,}, cols={len(df.columns):,})")
 
-    # 2) If incremental, also update canonical TSV (no date)
     if incremental:
         canonical_path = out_dir / f"{label_set_name}_{modality}.tsv"
         upsert_group_tsv(df, canonical_path, key_cols=["participant_id", "file_name"])
         print(f"Updated canonical {canonical_path} (+{len(df):,} candidate rows, deduped by participant_id+file_name)")
+
+
 
 
 def main() -> None:
@@ -308,8 +327,8 @@ def main() -> None:
     if user_labels is None:
         # Aggregate ALL: discover from derivatives
         baseline_labels, scan2_labels = discover_labels_from_derivatives(mriqc_deriv)
-        baseline_labels = baseline_labels or None
-        scan2_labels = scan2_labels or None
+        # baseline_labels = baseline_labels or None
+        # scan2_labels = scan2_labels or None
         print(f"Discovered baseline subjects: {0 if baseline_labels is None else len(baseline_labels)}")
         print(f"Discovered scan2 subjects:    {0 if scan2_labels is None else len(scan2_labels)}")
     else:

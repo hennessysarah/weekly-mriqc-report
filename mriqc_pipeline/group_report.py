@@ -3,7 +3,7 @@
 # for weekly mriqc script
 
 # Sarah Hennessy, shennessy@arizona.edu
-# last edit Jan 4, 2026
+# last edit Jan 6, 2026
 
 
 
@@ -17,7 +17,7 @@ from .utils import run_command
 from .plotting import plot_mriqc_boxplots
 
 T1_METRICS_DEFAULT = ["cjv", "cnr", "qi_2"]
-BOLD_METRICS_DEFAULT = ["fd_mean", "snr", "dvars_nstd"]
+BOLD_METRICS_DEFAULT = ["fd_mean", "tsnr", "dvars_nstd"]
 
 @dataclass
 class ReportArtifacts:
@@ -41,25 +41,34 @@ def run_group_mriqc(*, script_path: Path, deriv_dir: Path, out_dir: Path, target
 
     run_command(cmd, capture_output=False, check=True)
 
+def _read_tsv_or_empty(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    return pd.read_csv(path, sep="\t")
 
 def _load_tsvs(out_dir: Path, today: str) -> dict[str, pd.DataFrame]:
     out_dir = Path(out_dir)
 
-    dfs = {
-        "s1_t1": pd.read_csv(out_dir / f"baseline_T1w_{today}.tsv", sep="\t"),
-        "s1_bold": pd.read_csv(out_dir / f"baseline_bold_{today}.tsv", sep="\t"),
-        "s2_t1": pd.read_csv(out_dir / f"scan2_T1w_{today}.tsv", sep="\t"),
-        "s2_bold": pd.read_csv(out_dir / f"scan2_bold_{today}.tsv", sep="\t"),
-        "s1_t1_full": pd.read_csv(out_dir / "baseline_T1w.tsv", sep="\t"),
-        "s1_bold_full": pd.read_csv(out_dir / "baseline_bold.tsv", sep="\t"),
-        "s2_t1_full": pd.read_csv(out_dir / "scan2_T1w.tsv", sep="\t"),
-        "s2_bold_full": pd.read_csv(out_dir / "scan2_bold.tsv", sep="\t"),
+    return {
+        "s1_t1": _read_tsv_or_empty(out_dir / f"baseline_T1w_{today}.tsv"),
+        "s1_bold": _read_tsv_or_empty(out_dir / f"baseline_bold_{today}.tsv"),
+        "s2_t1": _read_tsv_or_empty(out_dir / f"scan2_T1w_{today}.tsv"),
+        "s2_bold": _read_tsv_or_empty(out_dir / f"scan2_bold_{today}.tsv"),
+        "s1_t1_full": _read_tsv_or_empty(out_dir / "baseline_T1w.tsv"),
+        "s1_bold_full": _read_tsv_or_empty(out_dir / "baseline_bold.tsv"),
+        "s2_t1_full": _read_tsv_or_empty(out_dir / "scan2_T1w.tsv"),
+        "s2_bold_full": _read_tsv_or_empty(out_dir / "scan2_bold.tsv"),
     }
-    return dfs
+
+# def _split_bold(df: pd.DataFrame, kind: str) -> pd.DataFrame:
+#     # kind in {"rest", "ta"}
+#     return df[df["file_name"].str.contains(kind, case=False, na=False)]
 
 def _split_bold(df: pd.DataFrame, kind: str) -> pd.DataFrame:
-    # kind in {"rest", "ta"}
-    return df[df["file_name"].str.contains(kind, case=False, na=False)]
+    if df is None or df.empty or "file_name" not in df.columns:
+        return pd.DataFrame()
+    return df[df["file_name"].astype(str).str.contains(kind, case=False, na=False)]
+
 
 def make_weekly_figures(
     *,
@@ -82,39 +91,68 @@ def make_weekly_figures(
     ta_s1_full   = _split_bold(dfs["s1_bold_full"], "ta")
     rest_s2_full = _split_bold(dfs["s2_bold_full"], "rest")
     ta_s2_full   = _split_bold(dfs["s2_bold_full"], "ta")
-
-    figures = {
-        "baseline_t1": plot_mriqc_boxplots(
-            df_subset=dfs["s1_t1"], df_full=dfs["s1_t1_full"], metrics=t1_metrics,
+    figures = {}
+        # ---- Baseline T1 ----
+    if len(dfs["s1_t1"]) > 0:
+        figures["baseline_t1"] = plot_mriqc_boxplots(
+            df_subset=dfs["s1_t1"],
+            df_full=dfs["s1_t1_full"],
+            metrics=t1_metrics,
             title="Baseline T1 MRIQC Metrics",
             outfile=Path(out_dir) / f"baseline_T1_MRIQC_metrics_{today}.png",
-        ),
-        "scan2_t1": plot_mriqc_boxplots(
-            df_subset=dfs["s2_t1"], df_full=dfs["s2_t1_full"], metrics=t1_metrics,
+        )
+
+    # ---- Scan2 T1 ----
+    if len(dfs["s2_t1"]) > 0:
+        figures["scan2_t1"] = plot_mriqc_boxplots(
+            df_subset=dfs["s2_t1"],
+            df_full=dfs["s2_t1_full"],
+            metrics=t1_metrics,
             title="Scan 2 T1 MRIQC Metrics",
             outfile=Path(out_dir) / f"scan2_T1_MRIQC_metrics_{today}.png",
-        ),
-        "baseline_rest": plot_mriqc_boxplots(
-            df_subset=rest_s1, df_full=rest_s1_full, metrics=bold_metrics,
+        )
+
+    # ---- Baseline Rest ----
+    if len(rest_s1) > 0:
+        figures["baseline_rest"] = plot_mriqc_boxplots(
+            df_subset=rest_s1,
+            df_full=rest_s1_full,
+            metrics=bold_metrics,
             title="Baseline Rest MRIQC Metrics",
             outfile=Path(out_dir) / f"baseline_rest_MRIQC_metrics_{today}.png",
-        ),
-        "scan2_rest": plot_mriqc_boxplots(
-            df_subset=rest_s2, df_full=rest_s2_full, metrics=bold_metrics,
+        )
+
+    # ---- Scan2 Rest ----
+    if len(rest_s2) > 0:
+        figures["scan2_rest"] = plot_mriqc_boxplots(
+            df_subset=rest_s2,
+            df_full=rest_s2_full,
+            metrics=bold_metrics,
             title="Scan 2 Rest MRIQC Metrics",
             outfile=Path(out_dir) / f"scan2_rest_MRIQC_metrics_{today}.png",
-        ),
-        "baseline_ta": plot_mriqc_boxplots(
-            df_subset=ta_s1, df_full=ta_s1_full, metrics=bold_metrics,
+        )
+
+    # ---- Baseline TA ----
+    if len(ta_s1) > 0:
+        figures["baseline_ta"] = plot_mriqc_boxplots(
+            df_subset=ta_s1,
+            df_full=ta_s1_full,
+            metrics=bold_metrics,
             title="Baseline Think Aloud MRIQC Metrics",
             outfile=Path(out_dir) / f"baseline_ta_MRIQC_metrics_{today}.png",
-        ),
-        "scan2_ta": plot_mriqc_boxplots(
-            df_subset=ta_s2, df_full=ta_s2_full, metrics=bold_metrics,
+        )
+
+    # ---- Scan2 TA ----
+    if len(ta_s2) > 0:
+        figures["scan2_ta"] = plot_mriqc_boxplots(
+            df_subset=ta_s2,
+            df_full=ta_s2_full,
+            metrics=bold_metrics,
             title="Scan 2 Think Aloud MRIQC Metrics",
             outfile=Path(out_dir) / f"scan2_ta_MRIQC_metrics_{today}.png",
-        ),
-    }
+        )
+
+
 
     counts = {
         "baseline_t1": len(dfs["s1_t1"]),
