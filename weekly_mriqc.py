@@ -4,7 +4,7 @@
 
 
 # Sarah Hennessy, shennessy@arizona.edu
-# last edit Jan 4, 2026
+# last edit Jan 6, 2026
 
 # To run: 
 # 1) open docker
@@ -12,14 +12,28 @@
 
 
 # python weekly_mriqc.py \
-#   --bids-folder /Volumes/achieve/CARE_Scans/bids_testing [put actual bids folder here] \
-#   --base-folder /Volumes/achieve/CARE_Study/9_fMRI_Analysis/Preprocessing/MRIQC/ \
+#   --bids-folder /bids_testing [put actual bids folder here] \
+#   --base-folder /MRIQC/ \
 #   --recipients shennessy@arizona.edu
 
 # optional flags: 
 # --yes to skip the prompt
 # --dry-run to not actually run MRIQC
 # --timeout 7200 etc.
+# -- email only. this doesnt do any calculations it just takes existing figures/ sheets and sends the email with them:
+    # if you already have tsvs from today: python weekly_mriqc.py \
+  # --bids-folder /bids_testing \
+  # --base-folder /MRIQC/ \
+  # --recipients shennessy@arizona.edu \
+  # --email-only
+
+  # if you dont : 
+  # python weekly_mriqc.py \
+  # --bids-folder /bids_testing \
+  # --base-folder /MRIQC/ \
+  # --recipients shennessy@arizona.edu \
+  # --email-only --rerun-group
+
 
 # this script:
 
@@ -33,8 +47,9 @@
 # 6. emails the user with summary report (which has summary plots!)
 
 # How does the email send work? 
-# It sends locally, without requiring authorization, but ONLY if you are connected to a UA computer. 
-# Will not always work on VPN. (Works best on Jessktop)
+# It sends locally, without requiring authorization, but ONLY if you are connected to a personal laptop WHILE ON CAMPUS
+# Will not always work on VPN. 
+# will not work on Jessktop because it is a campus official computer with those rights stripped away. 
 
 
 
@@ -60,6 +75,11 @@ def parse_args():
     p.add_argument("--yes", action="store_true", help="Do not prompt to continue after BIDS validation.")
     p.add_argument("--timeout", type=int, default=None, help="Timeout seconds per MRIQC subject (optional).")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--email-only", action="store_true",
+                   help="Skip validation + running MRIQC; just build group figures from existing TSVs and email them.")
+    p.add_argument("--rerun-group", action="store_true",
+                   help="When used with --email-only, re-run runmriqc_group_local.py before emailing.")
+
     return p.parse_args()
 
 def main():
@@ -68,6 +88,52 @@ def main():
 
     print("##### Hello! Welcome to the Master MRIQC Script #####")
     print("For this script to work you must have docker running!")
+
+    if args.email_only:
+        today = datetime.now().strftime("%Y-%m-%d")
+        seven_days_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        print("in EMAIL ONLY mode. No calculations will be run. Only emails sent.")
+        print("\n### MAKE SURE YOU ARE ON YOUR LOCAL COMPUTER ON UA WIFI \n emails will not send from VPN or Jessktop.")
+
+        cfg.weekly_group_reports_dir.mkdir(parents=True, exist_ok=True)
+
+        # optional: regenerate the TSV snapshots first
+        if args.rerun_group:
+            run_group_mriqc(
+                script_path=cfg.runmriqc_group_script,
+                deriv_dir=cfg.mriqc_derivatives_dir,
+                out_dir=cfg.weekly_group_reports_dir,
+                targets=[],   # empty => do NOT pass --subjects; aggregate ALL discovered
+            )
+
+        artifacts = make_weekly_figures(out_dir=cfg.weekly_group_reports_dir, today=today)
+
+        # For email-only, use the weekly TSV counts (not targets list)
+        # You can approximate "processed this week" as unknown:
+        ntargets = 0
+        nbaseline = 0
+        nscan2 = 0
+
+        html = build_mriqc_email_html(
+            seven_days_ago=seven_days_ago,
+            today=today,
+            output_directory=cfg.weekly_group_reports_dir,
+            ntargets=ntargets,
+            nbaseline=nbaseline,
+            nscan2=nscan2,
+            counts=artifacts.counts,
+            available_cids=set(artifacts.cid_to_path.keys()),
+        )
+
+        send_email_inline_images(
+            subject=f"MRIQC Mini-Report: {seven_days_ago} – {today}",
+            recipient_list=args.recipients,
+            html_body=html,
+            cid_to_path=artifacts.cid_to_path,
+            sender=cfg.sender_email,
+        )
+        print("Done")
+        return
 
     # STEP 1: BIDS VALIDATION
     result = validate_bids(bids_folder=cfg.bids_folder, output_dir=cfg.validator_outputs_dir)
@@ -132,6 +198,7 @@ def main():
         nbaseline=nbaseline,
         nscan2=nscan2,
         counts=artifacts.counts,
+        available_cids=set(artifacts.cid_to_path.keys()),
     )
 
     send_email_inline_images(
