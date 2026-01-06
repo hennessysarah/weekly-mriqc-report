@@ -1,7 +1,7 @@
 # MRIQC Weekly Pipeline
 
 Sarah Hennessy, shennessy@arizona.edu
-last edit: Jan 5, 2026
+last edit: Jan 6, 2026
 
 Automates weekly QC for newly BIDSified CARE scans:
 
@@ -14,7 +14,7 @@ Automates weekly QC for newly BIDSified CARE scans:
 
 This is intended to be run **weekly** and produce a lightweight “mini-report” email.
 
-> You must have **Docker running** to run MRIQC, and email sending via `sendmail` works reliably only when connected to a UA machine (may fail on VPN). 
+> Notes from the script: you must have **Docker running** to run MRIQC, and email sending via `sendmail` works reliably only when connected to a UA machine (may fail on VPN). 
 
 ---
 
@@ -62,7 +62,7 @@ pip install pandas matplotlib
 
 You will typically configure:
 
-* BIDS dataset path 
+* BIDS dataset path (e.g., `/Volumes/achieve/CARE_Scans/bids` or `bids_testing`)
 * Base pipeline folder (where derivatives/logs/reports live)
 * Email recipients
 ---
@@ -71,10 +71,10 @@ You will typically configure:
 
 I recommend you run this once a week at a scheduled time (ie Fridays at 9am).
 
-### 0) Run master_bids.py
+### 0) Run master_bids.py: /Volumes/achieve/CARE_Scans/master_bids.py 
 
 If you don't run this, nothing new will happen. The idea here is to do Bidsifying and QCing regularly. 
-	See that script for instructions.
+  See that script for instructions.
 
 ### 1) Make sure Docker is open
 
@@ -86,8 +86,8 @@ Example:
 
 ```bash
 python weekly_mriqc.py \
-  --bids-folder [path]
-  --base-folder [path]\
+  --bids-folder /Volumes/achieve/CARE_Scans/bids\
+  --base-folder /Volumes/achieve/CARE_Study/9_fMRI_Analysis/Preprocessing/MRIQC/ \
   --recipients shennessy@arizona.edu
 ```
 
@@ -97,7 +97,9 @@ What you’ll get:
   `validator_outputs/bids_validator_output_YYYY-MM-DD.txt` 
 * Weekly TSVs + plots in:
   `weekly_group_reports/`
-* An email report (HTML) with inline images
+* An email report (HTML) with inline images 
+  (note: emails won't send from VPN or Jessktop. can only send from local computer on UA wifi)
+
 
 ---
 
@@ -198,7 +200,7 @@ The weekly report plots are generated from:
 
 ### F) Send the email only
 
-The email report is HTML with inline images attached via Content-ID (`cid:`). Your script builds a `cid_to_path` map like:
+The email report is HTML with inline images attached via Content-ID (`cid:`). script builds a `cid_to_path` map like:
 
 * `baseline_t1`, `scan2_t1`
 * `baseline_rest`, `scan2_rest`
@@ -207,6 +209,15 @@ The email report is HTML with inline images attached via Content-ID (`cid:`). Yo
 and sends with `send_email_inline_images(...)`. 
 
 If you have generated the PNGs already, you can re-send the email without recomputing anything.
+
+```bash
+python weekly_mriqc.py \
+  --bids-folder /path/to/bids \
+  --base-folder /path/to/MRIQC/ \
+  --recipients shennessy@arizona.edu \
+  --email-only
+```
+
 
 ---
 
@@ -236,7 +247,7 @@ In `weekly_group_reports/`:
 ### Email not sending
 
 * `sendmail` must exist (`shutil.which("sendmail")` must succeed). 
-* May fail on VPN; works best connected to UA machine
+* May fail on VPN; works best connected to UA machine. Will not work on official campus machines. 
 
 ### MRIQC fails
 
