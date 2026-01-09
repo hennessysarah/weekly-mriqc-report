@@ -21,6 +21,7 @@ class BidsValidationResult:
 
 def validate_bids(*, bids_folder: Path, output_dir: Path) -> BidsValidationResult:
     ensure_dir(output_dir)
+    print("going to validate now..")
 
     from datetime import datetime
     date_str = datetime.now().strftime("%Y-%m-%d")

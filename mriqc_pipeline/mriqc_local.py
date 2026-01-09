@@ -11,8 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 import pandas as pd
 import re
+import threading
 
-from .utils import run_command, ensure_dir
+from .utils import run_command, ensure_dir, print_spinner
 
 def extract_id_num(sub_id: str) -> str | None:
     m = re.match(r"sub-(\d+)", str(sub_id))
@@ -59,8 +60,23 @@ def run_mriqc_for_ids(
     n_ok = 0
     n_err = 0
 
+   # from tqdm import tqdm
+
+   
+    #for id_num in tqdm(targets, desc="Running MRIQC", unit="sub"):
     for id_num in targets:
+      #  print()
+        stop = {"flag": False}
+        spinner_thread = threading.Thread(
+            target=print_spinner,
+            args=(lambda: stop["flag"], f"starting {id_num}"),
+            daemon=True,
+        )
+        spinner_thread.start()
+
         cmd = ["bash", str(mriqc_script), str(id_num)]
+        print("Command:")
+        print(str(cmd))
         if dry_run:
             continue
 
@@ -70,10 +86,13 @@ def run_mriqc_for_ids(
         err_path = logs_dir / f"mriqc_{id_num}.err.txt"
         out_path.write_text(res.stdout, encoding="utf-8")
         err_path.write_text(res.stderr, encoding="utf-8")
+        print(f"log written at: {out_path}")
 
         if res.returncode == 0:
             n_ok += 1
         else:
             n_err += 1
+        stop["flag"] = True
+        spinner_thread.join()
 
     return LocalRunSummary(targets=targets, n_ok=n_ok, n_err=n_err, logs_dir=logs_dir)
