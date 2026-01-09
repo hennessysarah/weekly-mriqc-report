@@ -1,7 +1,7 @@
 # MRIQC Weekly Pipeline
 
 Sarah Hennessy, shennessy@arizona.edu
-last edit: Jan 6, 2026
+last edit: Jan 9, 2026
 
 Automates weekly QC for newly BIDSified CARE scans:
 
@@ -66,6 +66,26 @@ You will typically configure:
 * Base pipeline folder (where derivatives/logs/reports live)
 * Email recipients
 ---
+
+## Optional Flags
+ --yes to skip the validation prompt (only recommended if you KNOW your data are bids valid)
+ --dry-run to not actually run MRIQC (check file structure/etc)
+ --timeout 7200 etc.
+ --skip-bids-val will skip the bids validation step (best if used with --yes prompt). 
+    # This is only recommended if you've already validated your dataset (ie earlier that day)
+ --email only. this doesnt do any calculations it just takes existing figures/ sheets and sends the email with them:
+    # if you already have tsvs from today: python weekly_mriqc.py \
+   --bids-folder /Volumes/achieve/CARE_Scans/bids_testing \
+   --base-folder /Volumes/achieve/CARE_Study/9_fMRI_Analysis/Preprocessing/MRIQC/ \
+   --recipients shennessy@arizona.edu \
+   --email-only
+
+   if you dont : 
+   python weekly_mriqc.py \
+   --bids-folder /Volumes/achieve/CARE_Scans/bids_testing \
+   --base-folder /Volumes/achieve/CARE_Study/9_fMRI_Analysis/Preprocessing/MRIQC/ \
+   --recipients shennessy@arizona.edu \
+   --email-only --rerun-group
 
 ## Running the full weekly pipeline
 
